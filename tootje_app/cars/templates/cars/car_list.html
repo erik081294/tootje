@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <ul class="nav nav-tabs mb-4" id="carTabs" role="tablist">
+        {% if user.is_authenticated %}
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="my-cars-tab" data-bs-toggle="tab" data-bs-target="#my-cars" type="button" role="tab" aria-controls="my-cars" aria-selected="true">
+                Mijn Auto's
+            </button>
+        </li>
+        {% endif %}
+        <li class="nav-item" role="presentation">
+            <button class="nav-link {% if not user.is_authenticated %}active{% endif %}" id="available-cars-tab" data-bs-toggle="tab" data-bs-target="#available-cars" type="button" role="tab" aria-controls="available-cars" aria-selected="{% if not user.is_authenticated %}true{% else %}false{% endif %}">
+                Beschikbare Auto's
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="carTabsContent">
+        {% if user.is_authenticated %}
+        <div class="tab-pane fade show active" id="my-cars" role="tabpanel" aria-labelledby="my-cars-tab">
+            <div class="mb-4">
+                {% if my_cars %}
+                    <div class="row">
+                        {% for car in my_cars %}
+                            <div class="col-md-4 mb-4">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <h5 class="card-title">{{ car.brand }} {{ car.model }}</h5>
+                                        <p class="card-text">
+                                            <strong>Kenteken:</strong> {{ car.license_plate }}<br>
+                                            <strong>Bouwjaar:</strong> {{ car.year }}<br>
+                                            <strong>Uurtarief:</strong> €{{ car.hourly_rate }}
+                                        </p>
+                                        <div class="d-flex justify-content-between">
+                                            <a href="{% url 'cars:car_detail' car.id %}" class="btn btn-primary">Details</a>
+                                            <a href="{% url 'cars:car_edit' car.id %}" class="btn btn-secondary">Bewerken</a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p>Je hebt nog geen auto's toegevoegd.</p>
+                {% endif %}
+                <a href="{% url 'cars:car_create' %}" class="btn btn-primary">Auto Toevoegen</a>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="tab-pane fade {% if not user.is_authenticated %}show active{% endif %}" id="available-cars" role="tabpanel" aria-labelledby="available-cars-tab">
+            <div class="row">
+                {% for car in available_cars %}
+                    <div class="col-md-4 mb-4">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">{{ car.brand }} {{ car.model }}</h5>
+                                <p class="card-text">
+                                    <strong>Kenteken:</strong> {{ car.license_plate }}<br>
+                                    <strong>Bouwjaar:</strong> {{ car.year }}<br>
+                                    <strong>Uurtarief:</strong> €{{ car.hourly_rate }}
+                                </p>
+                                <div class="d-flex justify-content-between">
+                                    <a href="{% url 'cars:car_detail' car.id %}" class="btn btn-primary">Details</a>
+                                    <a href="{% url 'bookings:booking_calendar' car.id %}" class="btn btn-success">Reserveren</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% empty %}
+                    <div class="col-12">
+                        <div class="alert alert-info">
+                            Er zijn momenteel geen auto's beschikbaar.
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

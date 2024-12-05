@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+{% load tz %}
+
+{% block content %}
+<div class="container mt-4">
+    <ul class="nav nav-tabs mb-4" id="bookingTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="my-bookings-tab" data-bs-toggle="tab" data-bs-target="#my-bookings" type="button" role="tab" aria-controls="my-bookings" aria-selected="true">
+                Mijn Boekingen
+            </button>
+        </li>
+        {% if owner_bookings %}
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="owner-bookings-tab" data-bs-toggle="tab" data-bs-target="#owner-bookings" type="button" role="tab" aria-controls="owner-bookings" aria-selected="false">
+                Boekingen bij Mijn Auto's
+            </button>
+        </li>
+        {% endif %}
+    </ul>
+
+    <div class="tab-content" id="bookingTabsContent">
+        <div class="tab-pane fade show active" id="my-bookings" role="tabpanel" aria-labelledby="my-bookings-tab">
+            <div class="row">
+                {% for booking in user_bookings %}
+                    <div class="col-md-6 mb-4">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">{{ booking.car.brand }} {{ booking.car.model }}</h5>
+                                <div class="card-text">
+                                    <p><strong>Status:</strong> 
+                                        <span class="badge 
+                                            {% if booking.status == 'PENDING' %}bg-warning
+                                            {% elif booking.status == 'APPROVED' %}bg-success
+                                            {% elif booking.status == 'REJECTED' %}bg-danger
+                                            {% elif booking.status == 'COMPLETED' %}bg-info
+                                            {% else %}bg-secondary{% endif %}">
+                                            {{ booking.get_status_display }}
+                                        </span>
+                                    </p>
+                                    <p><strong>Van:</strong> {% localtime on %}{{ booking.start_time|date:"d-m-Y H:i" }}{% endlocaltime %}</p>
+                                    <p><strong>Tot:</strong> {% localtime on %}{{ booking.end_time|date:"d-m-Y H:i" }}{% endlocaltime %}</p>
+                                    {% if booking.total_cost %}
+                                        <p><strong>Kosten:</strong> €{{ booking.total_cost }}</p>
+                                    {% endif %}
+                                </div>
+                                <a href="{% url 'bookings:booking_detail' booking.id %}" class="btn btn-primary">Details</a>
+                            </div>
+                        </div>
+                    </div>
+                {% empty %}
+                    <div class="col-12">
+                        <p>Je hebt nog geen boekingen gemaakt.</p>
+                        <a href="{% url 'cars:car_list' %}" class="btn btn-primary">Bekijk beschikbare auto's</a>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        {% if owner_bookings %}
+        <div class="tab-pane fade" id="owner-bookings" role="tabpanel" aria-labelledby="owner-bookings-tab">
+            <div class="row">
+                {% for booking in owner_bookings %}
+                    <div class="col-md-6 mb-4">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">{{ booking.car.brand }} {{ booking.car.model }}</h5>
+                                <div class="card-text">
+                                    <p><strong>Geboekt door:</strong> {{ booking.user.get_full_name }}</p>
+                                    <p><strong>Status:</strong> 
+                                        <span class="badge 
+                                            {% if booking.status == 'PENDING' %}bg-warning
+                                            {% elif booking.status == 'APPROVED' %}bg-success
+                                            {% elif booking.status == 'REJECTED' %}bg-danger
+                                            {% elif booking.status == 'COMPLETED' %}bg-info
+                                            {% else %}bg-secondary{% endif %}">
+                                            {{ booking.get_status_display }}
+                                        </span>
+                                    </p>
+                                    <p><strong>Van:</strong> {% localtime on %}{{ booking.start_time|date:"d-m-Y H:i" }}{% endlocaltime %}</p>
+                                    <p><strong>Tot:</strong> {% localtime on %}{{ booking.end_time|date:"d-m-Y H:i" }}{% endlocaltime %}</p>
+                                </div>
+                                <a href="{% url 'bookings:booking_detail' booking.id %}" class="btn btn-primary">Details</a>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

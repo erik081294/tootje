@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+
+{% block title %}Welkom bij Tootje{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Welkom bij Tootje</h1>
+    {% if user.is_authenticated %}
+        <p>Hallo {{ user.username }}! Welkom terug.</p>
+    {% else %}
+        <p>Dit is de hoofdpagina van je applicatie. <a href="{% url 'login' %}">Log in</a> of <a href="{% url 'register' %}">registreer</a> om te beginnen.</p>
+    {% endif %}
+</div>
+{% endblock %} 

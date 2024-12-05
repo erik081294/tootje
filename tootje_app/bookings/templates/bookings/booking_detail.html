@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% load tz %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header">
+            <h2>Boeking Details</h2>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h4>Auto Informatie</h4>
+                    <p><strong>Auto:</strong> {{ booking.car.brand }} {{ booking.car.model }}</p>
+                    <p><strong>Kenteken:</strong> {{ booking.car.license_plate }}</p>
+                    <p><strong>Eigenaar:</strong> {{ booking.car.owner.get_full_name }}</p>
+                </div>
+                <div class="col-md-6">
+                    <h4>Boeking Informatie</h4>
+                    <p><strong>Status:</strong> 
+                        <span class="badge 
+                            {% if booking.status == 'PENDING' %}bg-warning
+                            {% elif booking.status == 'APPROVED' %}bg-success
+                            {% elif booking.status == 'REJECTED' %}bg-danger
+                            {% elif booking.status == 'COMPLETED' %}bg-info
+                            {% else %}bg-secondary{% endif %}">
+                            {{ booking.get_status_display }}
+                        </span>
+                    </p>
+                    <p><strong>Start tijd:</strong> {% localtime on %}{{ booking.start_time|date:"d-m-Y H:i" }}{% endlocaltime %}</p>
+                    <p><strong>Eind tijd:</strong> {% localtime on %}{{ booking.end_time|date:"d-m-Y H:i" }}{% endlocaltime %}</p>
+                    {% if booking.total_cost %}
+                        <p><strong>Totale kosten:</strong> €{{ booking.total_cost }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if booking.notes %}
+            <div class="row mt-4">
+                <div class="col-12">
+                    <h4>Opmerkingen</h4>
+                    <p>{{ booking.notes|linebreaks }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="row mt-4">
+                <div class="col-12">
+                    <a href="{% url 'bookings:my_bookings' %}" class="btn btn-secondary">Terug naar overzicht</a>
+                    
+                    {% if booking.status != 'CANCELLED' %}
+                        {% if booking.user == request.user %}
+                            {% if booking.status == 'PENDING' %}
+                                <a href="{% url 'bookings:booking_calendar' booking.car.id %}?edit={{ booking.id }}" class="btn btn-primary">
+                                    Wijzigen
+                                </a>
+                            {% endif %}
+                            <a href="{% url 'bookings:booking_cancel' booking.id %}" class="btn btn-danger" 
+                               onclick="return confirm('Weet je zeker dat je deze boeking wilt annuleren?')">
+                                Annuleren
+                            </a>
+                        {% endif %}
+                        
+                        {% if booking.car.owner == request.user %}
+                            <a href="{% url 'bookings:booking_approve' booking.id %}" class="btn btn-success">
+                                {% if booking.status == 'APPROVED' %}Status wijzigen naar Goedgekeurd{% else %}Goedkeuren{% endif %}
+                            </a>
+                            <a href="{% url 'bookings:booking_reject' booking.id %}" class="btn btn-danger">
+                                {% if booking.status == 'REJECTED' %}Status wijzigen naar Afgewezen{% else %}Afwijzen{% endif %}
+                            </a>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% load tz %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header">
+            <h2>Boeking Goedkeuren</h2>
+        </div>
+        <div class="card-body">
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <h4>Auto Informatie</h4>
+                    <p><strong>Auto:</strong> {{ booking.car.brand }} {{ booking.car.model }}</p>
+                    <p><strong>Kenteken:</strong> {{ booking.car.license_plate }}</p>
+                    <p><strong>Aanvrager:</strong> {{ booking.user.get_full_name }}</p>
+                </div>
+                <div class="col-md-6">
+                    <h4>Boeking Informatie</h4>
+                    <p><strong>Start tijd:</strong> {% localtime on %}{{ booking.start_time|date:"d-m-Y H:i" }}{% endlocaltime %}</p>
+                    <p><strong>Eind tijd:</strong> {% localtime on %}{{ booking.end_time|date:"d-m-Y H:i" }}{% endlocaltime %}</p>
+                    {% if booking.notes %}
+                        <p><strong>Opmerkingen van aanvrager:</strong><br>{{ booking.notes }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <form method="post">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label for="approval_note">Opmerkingen bij goedkeuring (optioneel)</label>
+                    <textarea name="approval_note" id="approval_note" class="form-control" rows="3"></textarea>
+                    <small class="form-text text-muted">Eventuele opmerkingen of instructies voor de aanvrager.</small>
+                </div>
+
+                <div class="mt-4">
+                    <a href="{% url 'bookings:booking_detail' booking.id %}" class="btn btn-secondary">Annuleren</a>
+                    <button type="submit" class="btn btn-success">Boeking Goedkeuren</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %} 

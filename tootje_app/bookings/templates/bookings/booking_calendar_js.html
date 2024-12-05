@@ -1,0 +1,532 @@
+{% block extra_js %}
+<script>
+    // Initialize constants with template variables
+    const CAR_ID = "{{ car.id }}";
+    const GET_AVAILABILITY_URL = "{% url 'bookings:get_availability' %}";
+    const CALCULATE_COSTS_URL = "{% url 'bookings:calculate_costs' %}";
+    
+    // Initialize EDIT_BOOKING based on template condition
+    const EDIT_BOOKING = {% if edit_booking %}{
+        id: "{{ edit_booking.id }}",
+        start_time: "{{ edit_booking.start_time|date:'Y-m-d H:i:s' }}",
+        end_time: "{{ edit_booking.end_time|date:'Y-m-d H:i:s' }}",
+        expected_kilometers: "{{ edit_booking.expected_kilometers }}",
+        notes: `{{ edit_booking.notes|escapejs }}`
+    }{% else %}null{% endif %};
+
+    // Global variables
+    let startDateTime = null;
+    let endDateTime = null;
+    let startDate = null;
+    let endDate = null;
+    let availabilityCache = new Map();
+    let nextBookingCache = null;
+
+    // Time slot click handlers
+    document.querySelectorAll('.selected-time').forEach(input => {
+        input.addEventListener('click', function() {
+            const wrapper = document.getElementById(this.dataset.target);
+            // Hide all other time slot wrappers
+            document.querySelectorAll('.time-slots-wrapper').forEach(el => {
+                if (el !== wrapper) el.classList.remove('show');
+            });
+            wrapper.classList.toggle('show');
+        });
+    });
+
+    // Close time slots when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.time-input')) {
+            document.querySelectorAll('.time-slots-wrapper').forEach(el => {
+                el.classList.remove('show');
+            });
+        }
+    });
+
+    // Initialize Flatpickr
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof flatpickr === 'undefined') {
+            console.error('Flatpickr is not loaded');
+            return;
+        }
+
+        // Initialize start date picker
+        const startDatePicker = flatpickr("#start-date", {
+            enableTime: false,
+            minDate: "today",
+            locale: "nl",
+            dateFormat: "Y-m-d",
+            disable: [
+                function(date) {
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    return date < today;
+                }
+            ],
+            onChange: async function(selectedDates) {
+                if (selectedDates[0]) {
+                    startDate = selectedDates[0];
+                    nextBookingCache = null; // Reset cache
+                    await updateTimeOptions('start-time', startDate);
+                    
+                    // Reset end date picker
+                    endDatePicker.set('minDate', startDate);
+                    if (endDate && endDate < startDate) {
+                        endDatePicker.clear();
+                        endDate = null;
+                        document.querySelector('[data-target="end-time-slots"]').value = '';
+                    }
+
+                    // Show time slots after date selection
+                    setTimeout(() => {
+                        document.querySelector('[data-target="start-time-slots"]').click();
+                    }, 100);
+                }
+            }
+        });
+
+        // Initialize end date picker
+        const endDatePicker = flatpickr("#end-date", {
+            enableTime: false,
+            locale: "nl",
+            dateFormat: "Y-m-d",
+            disable: [
+                function(date) {
+                    if (!startDateTime) return true;
+                    if (!startDate || date < startDate) return true;
+                    
+                    // Check for next booking
+                    const nextBooking = findNextBookingAfterTime(
+                        Array.from(availabilityCache.values()).flat(),
+                        startDateTime
+                    );
+                    if (nextBooking) {
+                        const bookingStart = moment.utc(nextBooking.start).startOf('day');
+                        return moment(date).isSameOrAfter(bookingStart);
+                    }
+                    
+                    // Allow dates within 30 days of start date
+                    const maxDate = moment(startDate).add(30, 'days');
+                    return date > maxDate;
+                }
+            ],
+            onChange: async function(selectedDates) {
+                if (selectedDates[0]) {
+                    endDate = selectedDates[0];
+                    await updateTimeOptions('end-time', endDate);
+                    
+                    // Show time slots after date selection
+                    setTimeout(() => {
+                        document.querySelector('[data-target="end-time-slots"]').click();
+                    }, 100);
+                }
+            }
+        });
+
+        // Pre-fill form if editing
+        if (EDIT_BOOKING) {
+            const startDateTime = moment.utc(EDIT_BOOKING.start_time);
+            const endDateTime = moment.utc(EDIT_BOOKING.end_time);
+            
+            // Set the dates
+            startDatePicker.setDate(startDateTime.toDate());
+            endDatePicker.setDate(endDateTime.toDate());
+            
+            // Set the times
+            const startTimeInput = document.querySelector('[data-target="start-time-slots"]');
+            const endTimeInput = document.querySelector('[data-target="end-time-slots"]');
+            startTimeInput.value = startDateTime.format('HH:mm');
+            endTimeInput.value = endDateTime.format('HH:mm');
+            
+            // Set the global variables
+            window.startDateTime = startDateTime.toDate();
+            window.endDateTime = endDateTime.toDate();
+            window.startDate = startDateTime.startOf('day').toDate();
+            window.endDate = endDateTime.startOf('day').toDate();
+
+            // Update the summary
+            updateSummary();
+        }
+    });
+
+    // Update de confirm-booking handler
+    document.getElementById('confirm-booking').addEventListener('click', async () => {
+        if (!startDateTime || !endDateTime) {
+            alert('Selecteer eerst een start- en eindtijd');
+            return;
+        }
+
+        // Check for overlapping bookings
+        const hasOverlap = await hasBookingsBetween(startDateTime, endDateTime);
+        if (hasOverlap) {
+            alert('Deze tijd is niet beschikbaar vanwege een bestaande boeking');
+            return;
+        }
+
+        // Create form data
+        const formData = new FormData();
+        formData.append('start_time', localToUTC(startDateTime));
+        formData.append('end_time', localToUTC(endDateTime));
+        formData.append('expected_kilometers', kilometerSlider.value);
+        formData.append('notes', document.getElementById('notes').value);
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+        try {
+            // Submit the form
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                window.location.href = "{% url 'bookings:my_bookings' %}";
+            } else {
+                const data = await response.json();
+                alert(`Er ging iets mis: ${data.error}`);
+            }
+        } catch (error) {
+            console.error('Error submitting booking:', error);
+            alert('Er ging iets mis bij het opslaan van de boeking');
+        }
+    });
+
+    // Helper functions
+    function localToUTC(date) {
+        return moment(date).utc().format();
+    }
+
+    async function updateSummary() {
+        if (!startDateTime || !endDateTime) return;
+
+        // Update period display
+        const startStr = moment(startDateTime).format('D MMM YYYY HH:mm');
+        const endStr = moment(endDateTime).format('D MMM YYYY HH:mm');
+        document.getElementById('period-display').textContent = `${startStr} tot ${endStr}`;
+
+        // Update duration display
+        const duration = moment.duration(moment(endDateTime).diff(moment(startDateTime)));
+        const hours = Math.floor(duration.asHours());
+        const minutes = duration.minutes();
+        document.getElementById('duration-display').textContent = 
+            `${hours} uur${minutes ? ` en ${minutes} minuten` : ''}`;
+
+        // Update kilometers display
+        const kilometers = document.getElementById('kilometer-slider').value;
+        document.getElementById('kilometers-display').textContent = `${kilometers} km`;
+
+        // Update costs
+        await updateCosts();
+
+        // Enable confirm button
+        document.getElementById('confirm-booking').disabled = false;
+    }
+
+    async function updateCosts() {
+        if (!startDateTime || !endDateTime) return;
+
+        try {
+            const params = new URLSearchParams({
+                car_id: CAR_ID,
+                start_time: localToUTC(startDateTime),
+                end_time: localToUTC(endDateTime),
+                expected_kilometers: document.getElementById('kilometer-slider').value
+            });
+
+            const response = await fetch(`${CALCULATE_COSTS_URL}?${params}`);
+            const costs = await response.json();
+            
+            // Update total costs
+            document.getElementById('total-cost-display').textContent = 
+                `€${costs.total.toFixed(2)}`;
+
+            // Update cost breakdown
+            const breakdownHtml = `
+                <div class="mt-2">
+                    <div>Basis tarief: €${costs.breakdown.base_cost.toFixed(2)}</div>
+                    <div>Brandstof: €${costs.breakdown.fuel.toFixed(2)}</div>
+                    <div>Verzekering: €${costs.breakdown.insurance.toFixed(2)}</div>
+                    <div>Onderhoud: €${costs.breakdown.maintenance.toFixed(2)}</div>
+                    <div>Afschrijving: €${costs.breakdown.depreciation.toFixed(2)}</div>
+                </div>
+            `;
+            document.getElementById('cost-breakdown').innerHTML = breakdownHtml;
+
+        } catch (error) {
+            console.error('Error calculating costs:', error);
+        }
+    }
+
+    // Initialize kilometer slider
+    const kilometerSlider = document.getElementById('kilometer-slider');
+    kilometerSlider.addEventListener('input', function() {
+        document.getElementById('kilometer-value').textContent = `${this.value} km`;
+        updateSummary();
+    });
+
+    // Time slot selection handlers
+    async function handleStartTimeSelection(hour, minutes) {
+        const potentialStartTime = moment.tz(startDate, 'Europe/Amsterdam')
+            .hour(hour)
+            .minute(minutes)
+            .second(0);
+        
+        startDateTime = potentialStartTime.toDate();
+        
+        // Reset end time
+        endDateTime = null;
+        endDate = null;
+        document.querySelector('[data-target="end-time-slots"]').value = '';
+        
+        // Update the end date picker
+        endDatePicker.clear();
+        endDatePicker.set('minDate', startDate);
+        
+        // Enable the end date picker
+        document.getElementById('end-date').disabled = false;
+
+        await updateSummary();
+    }
+
+    async function handleEndTimeSelection(hour, minutes) {
+        const potentialEndTime = moment.tz(endDate, 'Europe/Amsterdam')
+            .hour(hour)
+            .minute(minutes)
+            .second(0);
+        
+        // Check for overlap with existing bookings
+        const hasOverlap = await hasBookingsBetween(startDateTime, potentialEndTime.toDate());
+        
+        if (hasOverlap) {
+            console.error('Selected time overlaps with existing booking');
+            alert('Deze tijd is niet beschikbaar vanwege een bestaande boeking');
+            document.querySelector('[data-target="end-time-slots"]').value = '';
+            return;
+        }
+        
+        endDateTime = potentialEndTime.toDate();
+        await updateSummary();
+    }
+
+    async function hasBookingsBetween(start, end) {
+        const dates = [];
+        let currentDate = moment(start).startOf('day');
+        const endDate = moment(end).startOf('day');
+        
+        while (currentDate <= endDate) {
+            dates.push(currentDate.format('YYYY-MM-DD'));
+            currentDate.add(1, 'day');
+        }
+
+        // Check elke datum voor boekingen
+        for (const dateStr of dates) {
+            const bookings = await getAvailability(new Date(dateStr));
+            
+            for (const booking of bookings) {
+                // Skip the current booking if we're editing
+                if (EDIT_BOOKING && booking.id === EDIT_BOOKING.id) {
+                    continue;
+                }
+
+                const bookingStart = moment.utc(booking.start);
+                const bookingEnd = moment.utc(booking.end);
+                
+                // Aangepaste overlap check:
+                // - Een nieuwe boeking mag wel starten op de eindtijd van een andere boeking
+                // - Een nieuwe boeking mag niet eindigen op de starttijd van een andere boeking
+                if (
+                    moment.utc(start).isBefore(bookingEnd) && 
+                    moment.utc(end).isAfter(bookingStart) &&
+                    !moment.utc(start).isSame(bookingEnd)
+                ) {
+                    console.log('Overlap found with booking:', booking);
+                    return true;
+                }
+            }
+        }
+        
+        return false;
+    }
+
+    async function getAvailability(date) {
+        const dateStr = moment(date).format('YYYY-MM-DD');
+        
+        if (availabilityCache.has(dateStr)) {
+            return availabilityCache.get(dateStr);
+        }
+        
+        try {
+            const response = await fetch(`${GET_AVAILABILITY_URL}?date=${dateStr}&car_id=${CAR_ID}`);
+            const bookings = await response.json();
+            availabilityCache.set(dateStr, bookings);
+            return bookings;
+        } catch (error) {
+            console.error('Error fetching availability:', error);
+            return [];
+        }
+    }
+
+    async function updateTimeOptions(timeInputId, date) {
+        const wrapper = document.getElementById(timeInputId + '-slots');
+        const morningSlots = wrapper.querySelector('.morning-slots');
+        const afternoonSlots = wrapper.querySelector('.afternoon-slots');
+        const eveningSlots = wrapper.querySelector('.evening-slots');
+        
+        // Clear the containers
+        morningSlots.innerHTML = '';
+        afternoonSlots.innerHTML = '';
+        eveningSlots.innerHTML = '';
+
+        // Haal alle boekingen op voor deze datum en de volgende dag
+        const dateStr = moment(date).format('YYYY-MM-DD');
+        const nextDateStr = moment(date).add(1, 'day').format('YYYY-MM-DD');
+        const bookings = [
+            ...await getAvailability(date),
+            ...await getAvailability(moment(date).add(1, 'day').toDate())
+        ];
+
+        if (timeInputId === 'start-time') {
+            // Voor starttijd: toon alleen tijden die niet in een boeking vallen
+            for (let hour = 7; hour <= 22; hour++) {
+                for (let minutes of [0, 30]) {
+                    const slotTime = moment.tz(dateStr, 'Europe/Amsterdam')
+                        .hour(hour)
+                        .minute(minutes)
+                        .second(0);
+                    
+                    // Check of dit tijdslot beschikbaar is
+                    let isAvailable = true;
+                    
+                    // Check of het tijdslot in het verleden ligt
+                    if (slotTime.isBefore(moment())) {
+                        isAvailable = false;
+                    }
+                    
+                    // Check voor overlap met bestaande boekingen
+                    for (const booking of bookings) {
+                        // Skip the current booking if we're editing
+                        if (EDIT_BOOKING && booking.id === EDIT_BOOKING.id) {
+                            continue;
+                        }
+
+                        const bookingStart = moment.utc(booking.start);
+                        const bookingEnd = moment.utc(booking.end);
+                        
+                        // Aangepaste overlap check: slot mag wel op eindtijd beginnen
+                        if (slotTime.isBetween(bookingStart, bookingEnd, null, '[)') || 
+                            slotTime.isSame(bookingStart)) {
+                            isAvailable = false;
+                            break;
+                        }
+                    }
+
+                    // Genereer HTML voor het tijdslot
+                    const timeDisplay = slotTime.format('HH:mm');
+                    const timeValue = `${hour}.${minutes ? '5' : '0'}`;
+                    
+                    const slotHtml = `
+                        <button type="button" 
+                                class="time-slot-btn ${isAvailable ? 'available' : 'booked'}"
+                                data-value="${timeValue}"
+                                ${!isAvailable ? 'disabled' : ''}>
+                            ${timeDisplay}
+                        </button>
+                    `;
+                    
+                    if (hour < 12) {
+                        morningSlots.innerHTML += slotHtml;
+                    } else if (hour < 17) {
+                        afternoonSlots.innerHTML += slotHtml;
+                    } else {
+                        eveningSlots.innerHTML += slotHtml;
+                    }
+                }
+            }
+        } else {
+            // Voor eindtijd: toon alleen tijden tot de eerstvolgende boeking
+            if (!startDateTime) return;
+            
+            // Vind de eerstvolgende boeking na de starttijd
+            const nextBooking = findNextBookingAfterTime(bookings, startDateTime);
+            const maxEndTime = nextBooking ? moment.utc(nextBooking.start) : moment(date).endOf('day');
+            
+            for (let hour = 7; hour <= 22; hour++) {
+                for (let minutes of [0, 30]) {
+                    const slotTime = moment.tz(dateStr, 'Europe/Amsterdam')
+                        .hour(hour)
+                        .minute(minutes)
+                        .second(0);
+                    
+                    // Skip tijden voor de starttijd
+                    if (slotTime.isSameOrBefore(moment(startDateTime))) {
+                        continue;
+                    }
+                    
+                    // Skip tijden na de eerstvolgende boeking
+                    if (slotTime.isAfter(maxEndTime)) {
+                        continue;
+                    }
+                    
+                    const timeDisplay = slotTime.format('HH:mm');
+                    const timeValue = `${hour}.${minutes ? '5' : '0'}`;
+                    
+                    const slotHtml = `
+                        <button type="button" 
+                                class="time-slot-btn available"
+                                data-value="${timeValue}">
+                            ${timeDisplay}
+                        </button>
+                    `;
+                    
+                    if (hour < 12) {
+                        morningSlots.innerHTML += slotHtml;
+                    } else if (hour < 17) {
+                        afternoonSlots.innerHTML += slotHtml;
+                    } else {
+                        eveningSlots.innerHTML += slotHtml;
+                    }
+                }
+            }
+        }
+
+        // Add click handlers to time slots
+        wrapper.querySelectorAll('.time-slot-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                // Update the input field
+                const timeInput = document.querySelector(`[data-target="${timeInputId}-slots"]`);
+                timeInput.value = this.textContent.trim();
+                
+                // Get the time value
+                const [hour, minutes] = this.dataset.value.split('.').map(Number);
+                
+                // Call the appropriate handler
+                if (timeInputId === 'start-time') {
+                    handleStartTimeSelection(hour, minutes);
+                } else {
+                    handleEndTimeSelection(hour, minutes);
+                }
+            });
+        });
+    }
+
+    function findNextBookingAfterTime(bookings, startTime) {
+        const startMoment = moment(startTime);
+        let nextBooking = null;
+        
+        bookings.forEach(booking => {
+            // Skip the current booking if we're editing
+            if (EDIT_BOOKING && booking.id === EDIT_BOOKING.id) {
+                return;
+            }
+
+            const bookingStart = moment.utc(booking.start);
+            if (bookingStart.isAfter(startMoment)) {
+                if (!nextBooking || bookingStart.isBefore(moment.utc(nextBooking.start))) {
+                    nextBooking = booking;
+                }
+            }
+        });
+        
+        return nextBooking;
+    }
+</script>
+{% endblock %} 

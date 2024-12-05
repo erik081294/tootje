@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h2>Auto Reserveren</h2>
+                </div>
+                <div class="card-body">
+                    <h4>{{ car.brand }} {{ car.model }}</h4>
+                    <p>Kenteken: {{ car.license_plate }}</p>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        {{ form|crispy }}
+                        
+                        <div class="mt-3">
+                            <button type="submit" class="btn btn-primary">Reserveren</button>
+                            <a href="{% url 'bookings:booking_calendar' car.id %}" class="btn btn-secondary">Annuleren</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h4>Kostenberekening</h4>
+                </div>
+                <div class="card-body">
+                    <div class="cost-breakdown">
+                        <p><strong>Uurtarief:</strong> €{{ car.hourly_rate }}/uur</p>
+                        <p><strong>Brandstofkosten:</strong> €{{ car.fuel_cost_per_km }}/km</p>
+                        <p><strong>Verzekeringsbijdrage:</strong> €{{ car.insurance_fee }}</p>
+                        <p><strong>Onderhoudsbijdrage:</strong> €{{ car.maintenance_fee }}</p>
+                        <p><strong>Afschrijving:</strong> €{{ car.depreciation_fee }}</p>
+                        <hr>
+                        <h5>Totaal: <span id="total-cost">€0.00</span></h5>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h4>Beschikbaarheid</h4>
+                </div>
+                <div class="card-body">
+                    {% for date in available_dates %}
+                        <h5>{{ date.date|date:"l d F" }}</h5>
+                        {% if date.bookings %}
+                            <p class="text-muted">Geboekte tijden:</p>
+                            <ul class="list-unstyled">
+                            {% for booking in date.bookings %}
+                                <li>{{ booking.start_time|time:"H:i" }} - {{ booking.end_time|time:"H:i" }}</li>
+                            {% endfor %}
+                            </ul>
+                        {% else %}
+                            <p class="text-success">Volledig beschikbaar</p>
+                        {% endif %}
+                        <hr>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.34/moment-timezone-with-data.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Zet de default timezone
+    moment.tz.setDefault('Europe/Amsterdam');
+    
+    const startTimeInput = document.getElementById('id_start_time');
+    const endTimeInput = document.getElementById('id_end_time');
+    const expectedKmInput = document.getElementById('id_expected_kilometers');
+    
+    // Update de minimum tijd logica
+    const now = moment().tz('Europe/Amsterdam');
+    const nowString = now.format('YYYY-MM-DDTHH:mm');
+    startTimeInput.min = nowString;
+    endTimeInput.min = nowString;
+    
+    // Update de start time change handler
+    startTimeInput.addEventListener('change', function() {
+        if (startTimeInput.value) {
+            const startMoment = moment.tz(startTimeInput.value, 'Europe/Amsterdam');
+            endTimeInput.min = startMoment.format('YYYY-MM-DDTHH:mm');
+            if (endTimeInput.value && moment.tz(endTimeInput.value, 'Europe/Amsterdam').isSameOrBefore(startMoment)) {
+                endTimeInput.value = '';
+            }
+        }
+    });
+    
+    // Update de cost calculation
+    function updateCostPreview() {
+        const startTime = moment.tz(startTimeInput.value, 'Europe/Amsterdam').format();
+        const endTime = moment.tz(endTimeInput.value, 'Europe/Amsterdam').format();
+        const expectedKm = expectedKmInput.value;
+        
+        if (!startTime || !endTime || !expectedKm) return;
+        
+        // Add loading indicator
+        totalCostSpan.textContent = 'Berekenen...';
+        
+        fetch(`/bookings/calculate-costs/?car_id={{ car.id }}&start_time=${startTime}&end_time=${endTime}&expected_kilometers=${expectedKm}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                totalCostSpan.textContent = `€${data.total.toFixed(2)}`;
+                // ... rest of the cost update code
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                totalCostSpan.textContent = 'Fout bij berekenen';
+            });
+    }
+});
+</script>
+{% endblock %}
+{% endblock %}

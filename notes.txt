@@ -1,0 +1,124 @@
+
+---
+
+### **User Interface Description for a Car-Sharing App**
+
+#### **1. Home Screen**
+Upon logging in, users are presented with the **Home Screen**. This screen serves as the central dashboard for both car owners and their approved users (friends, family, or colleagues). 
+
+**Key Sections:**
+
+- **Quick Bookings:** A summary of upcoming bookings for easy reference, including the user’s next booking slot.
+- **Notifications Panel:** Notifications for pending booking requests, updates on accepted/declined bookings, and any relevant messages.
+- **Navigation Menu:** Links to other sections of the app, like **Booking Calendar**, **Cost Calculator**, **Car Settings**, and **Account Settings**.
+
+---
+
+#### **2. Booking Calendar**
+The **Booking Calendar** is where users can book time slots or view upcoming and past bookings. The interface offers a streamlined experience for checking the car's availability and booking usage slots.
+
+**Key Elements:**
+
+- **Calendar View:** Users can view dates, time slots, and the status of each slot (e.g., Available, Pending, Booked).
+- **Booking Slots:** By selecting a date and time slot, users can initiate a booking request. 
+- **Cost Preview:** A real-time cost estimation appears based on the selected time slot and calculated costs (fuel, insurance, maintenance, and depreciation).
+- **Confirm & Book Button:** After reviewing the cost estimate, users can submit a booking request. A confirmation dialog appears, reminding them of the total cost before they finalize the request.
+
+**Owner-Specific Features:**
+For owners, the calendar includes options to block or unblock certain time slots. Owners can set specific days or hours when the car isn’t available for sharing.
+
+---
+
+#### **3. Cost Calculator**
+The **Cost Calculator** allows both owners and users to see how booking costs are calculated. This feature promotes transparency and enables car owners to adjust the fee structure for sharing.
+
+**Key Components:**
+
+- **Cost Breakdown:** Users see a detailed breakdown of cost categories, including:
+  - **Fuel Costs** - Based on the car’s average fuel consumption and current fuel prices.
+  - **Insurance Contribution** - A fixed percentage of insurance cost shared per booking.
+  - **Depreciation Contribution** - Calculated based on the car’s age, model, and typical depreciation rate.
+  - **Maintenance Fee** - An additional cost based on average maintenance expenses.
+  
+- **Customizable Settings for Owners:** Owners can adjust which cost categories are included in the total and the percentage or fixed fee assigned to each. For instance, an owner might decide to only charge for fuel and maintenance, leaving out depreciation and insurance contributions.
+- **Cost Estimation Preview:** As the owner adjusts settings, a preview updates in real time, showing an example total for a standard booking.
+
+---
+
+#### **4. User Profiles**
+Each user has a **Profile Page**, accessible to both the owner and the user themselves. Profiles display information such as user details, booking history, and payment status.
+
+**Elements:**
+
+- **Basic Information:** Name, contact info, and a profile photo.
+- **Booking History:** A record of all past and upcoming bookings, with details like booking date, cost, and car usage duration.
+- **Payment History:** A record of payments made by the user, including total costs for each booking and payment dates.
+  
+---
+
+#### **5. Car Settings (Owner Only)**
+The **Car Settings** section is where owners configure details specific to their car and sharing preferences.
+
+**Key Features:**
+
+- **Car Profile:** Car make, model, year, license plate, and a photo of the vehicle.
+- **Availability Settings:** Owners can set the car’s general availability schedule (e.g., weekends only) and can block out specific days or hours if the car will be unavailable.
+- **Allowed Users List:** Owners can manage the list of people allowed to book the car. This feature includes an invitation system, where the owner can send invitations to new users by email or phone number.
+- **Request Approval Settings:** Owners can toggle between automatic approval for certain users or manual approval for all booking requests.
+  
+---
+
+#### **6. Booking Requests and Approvals (Owner Only)**
+In the **Booking Requests** section, owners can review and manage incoming booking requests. 
+
+**Components:**
+
+- **Pending Requests List:** Each pending request includes the requester’s name, the requested time slot, and the estimated total cost.
+- **Accept or Decline Options:** Owners can approve or deny requests with a simple button, accompanied by an optional message box for communicating with the user if a request is declined.
+- **Automated Notifications:** Users are notified in real time once the request is accepted or declined, and any fees are locked in based on the owner's configured cost-sharing settings.
+
+---
+
+#### **7. Payment System**
+The **Payment System** handles all transactions for car usage. Both owners and users have a clear view of their financial interactions.
+
+**Features:**
+
+- **Payment Processing:** Users pay for bookings via integrated payment options (e.g., credit card, PayPal). Owners can specify if payments should be made upfront or after the booking.
+- **Receipts and Invoices:** Digital receipts are automatically generated after each booking, accessible from both the Booking History and Payment History sections.
+- **Automatic Settlements:** Funds are automatically settled with the owner once a booking is completed, simplifying the financial process for both parties.
+
+---
+
+#### **8. Notifications and Messaging**
+The **Notifications and Messaging System** is designed for efficient communication between the car owner and users.
+
+**Features:**
+
+- **In-App Messaging:** Allows users and owners to communicate regarding bookings. For instance, users can ask questions about the car or the booking rules.
+- **Booking Reminders:** Automatic reminders are sent before the booking period starts, as well as after for feedback.
+- **Push Notifications:** Important updates, like booking approval or payment completion, trigger push notifications to ensure users stay informed without needing to check the app constantly.
+
+---
+
+#### **9. Account Settings**
+Finally, the **Account Settings** section provides general options for users and owners to manage their profile information, notification preferences, and privacy settings.
+
+**Components:**
+
+- **Profile Information:** Editable profile fields like name, email, phone number, and profile photo.
+- **Notification Preferences:** Users can customize their notification settings, choosing which types of updates they wish to receive.
+- **Privacy Settings:** Owners can adjust visibility settings, deciding if the car profile is visible to all invited users or only to those with approved bookings.
+
+---
+
+### **User Experience Flow**
+1. **User logs in** and navigates to the Booking Calendar to view car availability.
+2. User **selects a time slot**, sees the cost estimate, and submits a booking request.
+3. The **owner reviews the request** (if manual approval is on), accepts it, and both parties receive notifications.
+4. **Payment is processed**, and the user receives a reminder before the booking period begins.
+5. After the booking, a payment receipt is generated, and the booking is marked as completed.
+
+---
+
+This UI design prioritizes ease of use, transparency in cost calculations, and efficient communication, creating a seamless car-sharing experience for both owners and their network of trusted users.

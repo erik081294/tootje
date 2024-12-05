@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header">
+            <h2>{{ car.brand }} {{ car.model }}</h2>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h4>Auto Informatie</h4>
+                    <p><strong>Kenteken:</strong> {{ car.license_plate }}</p>
+                    <p><strong>Bouwjaar:</strong> {{ car.year }}</p>
+                    <p><strong>Eigenaar:</strong> {{ car.owner.get_full_name }}</p>
+                    <p><strong>Uurtarief:</strong> €{{ car.hourly_rate }}</p>
+                    
+                    <h4 class="mt-4">Kosten Specificatie</h4>
+                    <p><strong>Brandstofkosten:</strong> €{{ car.fuel_cost_per_km }}/km</p>
+                    <p><strong>Verzekeringsbijdrage:</strong> €{{ car.insurance_fee }}</p>
+                    <p><strong>Onderhoudsbijdrage:</strong> €{{ car.maintenance_fee }}</p>
+                    <p><strong>Afschrijving:</strong> €{{ car.depreciation_fee }}</p>
+                </div>
+                <div class="col-md-6">
+                    <h4>Beschrijving</h4>
+                    <p>{{ car.description|linebreaks }}</p>
+                    
+                    <div class="mt-4">
+                        {% if user == car.owner %}
+                            <a href="{% url 'cars:car_edit' car.id %}" class="btn btn-primary">Auto Bewerken</a>
+                        {% else %}
+                            <a href="{% url 'bookings:booking_calendar' car.id %}" class="btn btn-primary">Bekijk Beschikbaarheid</a>
+                            <a href="{% url 'bookings:booking_calendar' car.id %}" class="btn btn-success">Nu Reserveren</a>
+                        {% endif %}
+                        <a href="{% url 'cars:car_list' %}" class="btn btn-secondary">Terug naar Overzicht</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
